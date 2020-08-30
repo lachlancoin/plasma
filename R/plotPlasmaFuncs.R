@@ -308,8 +308,8 @@ l
 .smooth<-function(d1, xlim = NULL, step = 10, cumul = F){
 	
 	if(!is.null(xlim)){
-	  inds1 =  which(d[,1]>=xlim[1] & d[,1] <=xlim[2])
-	  d = d[inds1,,drop=F]
+	  inds1 =  which(d1[,1]>=xlim[1] & d1[,1] <=xlim[2])
+	  d = d1[inds1,,drop=F]
 	todo = xlim[1]:xlim[2]
 	}else{
 		todo = 2:1998
@@ -339,8 +339,6 @@ vec
 
 
 replot<-function(l,  xlim = c(100,200), nme = names(l)[1:5], norm=T, samesum = F, smooth = 1, cumul = F, log="y", normtop = F, ymin = 1, secondnorm=F){
-
-
 
 plott = F
 #plot(x,y, log=log, type='l',ylim = ylim,  xlim = xlim, col="white")
