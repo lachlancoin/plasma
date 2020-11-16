@@ -1,18 +1,58 @@
+.libPaths("C:/Users/LCOIN/R-4.0.2/library")
+
 library('jsonlite');
-RHOME="../R"
+library('ggplot2')
+library(tidyr)
+library(reshape2)
+RHOME="../../R"
+setwd("../data/new_samples")
 source(paste(RHOME, "plotPlasmaFuncs.R", sep="/"));
 
-
-names = c("1524", "1249", "1494", "609", "616");
+names = c("1524", "1249", "1494", "1084","609", "616");
 
 
 
 
 #x = 2:1999
 x = 2:1999
-P0 = readDataAll(names[1:3], '_P0_read_length_count.json', x)
-shared = readDataAll(names[1:3], '_P0_shared_read_length_count.json', x)
-unique = readDataAll(names[1:3], '_P0_unique_read_length_count.json', x)
+P0 = readDataAll(names[1:4], '_P0_read_length_count.json', x)
+shared = readDataAll(names[1:4], '_P0.shared.somatic_reads_read_length_count.json', x) #'_P0_shared_read_length_count.json', x)
+unique = readDataAll(names[1:4], '_P0.unique.somatic_reads_read_length_count.json', x)
+
+.cumsum1<-function(x) sum(x) -cumsum(x)
+
+P0_c = data.frame(cbind(apply(P0,2,cumsum), apply(P0,2,.cumsum1)))
+shared_c = data.frame(cbind(apply(shared,2,cumsum), apply(shared,2,.cumsum1)))
+unique_c = data.frame(cbind(apply(unique,2,cumsum), apply(unique,2,.cumsum1)))
+ncol = dim(P0_c)[2]
+ratios = matrix(nrow = dim(P0_c)[1],ncol = ncol)
+for(i in 1:ncol){
+  shared_c[,i] = shared_c[,i]/P0_c[,i]
+  unique_c[,i] = unique_c[,i]/P0_c[,i]
+  ratios[,i] = shared_c[,i]/unique_c[,i]
+}
+
+ratios = data.frame(ratios)
+names(ratios) = c(paste(names(unique),"less than or equal to",sep="."),paste(names(unique),"greater than",sep="."))
+ratios = cbind(x,ratios)
+df = pivot_longer(ratios, names_to = "ID", values_to = "proportion", cols=names(ratios)[-1])  %>% 
+      separate(ID, c('ID', 'type'), sep='\\.', remove = T)
+ratios1 = ratios[,c(1,grep("combined",names(ratios)))]
+df1 = pivot_longer(ratios1, names_to="ID",values_to="proportion",cols = names(ratios1)[-1])
+ggp<-ggplot(df1, aes(x,proportion, linetype=ID))+geom_line()+ggtitle("Ratio of shared to unique")+ylab("Ratio")
+ggp<-ggp+scale_x_continuous(trans='log10')
+textsize=20
+ggp<-ggp+theme_bw()+theme(text = element_text(size=textsize))
+ggsave("ratio.png", plot=ggp, width = 30, height = 30, units = "cm")
+
+ggp1 = ggplot(df, aes(x,proportion, fill=ID,color=ID, linetype=type))+geom_line()+scale_x_continuous(trans='log10')+ggtitle("Ratio of shared to unique")
+ggp1<-ggp1+theme_bw()+theme(text = element_text(size=textsize))
+ggsave("ratio1.png", plot=ggp1, width = 30, height = 30, units = "cm")
+
+
+###FROM HERE IS OLDER SCRIPT
+
+
 mergedT = readDataAll(names[1:3], '_P0_merged_read_length_count.json', x)
 P01 = readDataAll(names[4:5], '_P0_read_length_count.json', x)
 merged = readDataAll(names[4:5], '_P0_merged_read_length_count.json', x)
@@ -111,6 +151,16 @@ calcC(w,ratio(apply(l$c1524$c[c(100,200),],1,ratio)))
 #((( rat[2]) * 0.07)* (1/rat[1]))
 
 c606 = readData(ext_all='616_P0_read_length_count.json', ext_unique = '609_P0_read_length_count.json', thresh = thresh )
+
+
+
+
+
+
+#####
+.makeCumlative<-function(mat){
+ mat1 = data.frame(apply(mat,2,cumsum))
+}
 
 
 

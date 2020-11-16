@@ -110,7 +110,7 @@ readDataAll<-function(names, ext, x = 2:1999){
 		res[ match(r_i[ind1,1], x),i] = r_i[ind1,2]
 	}
 	res[,length(names)+1] = as.matrix(apply(res,1,sum))
-	res
+	data.frame(res)
 	
 }
 ma <- function(x, n = 5){filter(x, rep(1 / n, n), sides = 2)}
