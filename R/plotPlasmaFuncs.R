@@ -14,6 +14,41 @@ for(i in 2:(di[1])){
 res
 }
 
+do_smooth<-function(clusters, xlim = c(2,2000), inds = 2:(dim(clusters)[2]),span = 0.05){
+  if(span==0) return (clusters)
+  nmes = names(clusters)
+  #print(nmes)
+  #print(dim(clusters))
+  for(j in inds){	
+    names(clusters)[j] = "depth"
+    
+    if(max(clusters$depth,na.rm=T)>0){
+     # y = try(.loess(clusters, span))
+      y = ma(clusters[,j],span)
+       # try(.smooth(clusters[,c(1,j)], xlim=NULL,span,F))
+      if(inherits(y,"try-error")) {
+        print("error loess")
+        #print(which(is.na(clusters$pos)))
+        #plot(clusters$pos,clusters$depth)
+        #print()
+      }else{
+        #print("is ok ")
+        y[clusters$depth==0] =0
+        clusters[,j]=  y
+      }
+    } 
+    names(clusters)[j] = nmes[j]
+  }
+  
+  clusters
+}
+
+.loess<-function(clusters, span){
+  cars.lo <- stats::loess(depth ~ x, clusters, span = span)
+  y = try(stats::predict(cars.lo, clusters, se = FALSE))
+  y
+}
+
 calcCell<-function(a1){
 num = (exp(a1$filtered$merged) - exp(a1$filtered$normal))
 denom = (exp(a1$filtered$tumor) - exp(a1$filtered$normal))
@@ -114,8 +149,11 @@ readDataAll<-function(names, ext, x = 2:1999){
 	
 }
 ma <- function(x, n = 5){filter(x, rep(1 / n, n), sides = 2)}
-makeDensity<-function(vec, smooth)r = vec/(sum(vec))
- 
+makeDensity<-function(vec, smooth){
+  r = vec/(sum(vec))
+  if(smooth>0) r = ma(r,smooth)
+  r
+}
 
 ident<-function(x) x
 cumsum1<-function(x) 1- cumsum(x)
@@ -330,8 +368,10 @@ l
 		matr = d
 	}
 	if(cumul) matr[,2] = .cumul(matr[,2])
-	matr
+	matr[,2]
 }
+ma <- function(x, n = 5){stats::filter(x, rep(1 / n, n), sides = 2)}
+
 .cumul<-function(vec) {
 for(i in 2:length(vec)) vec[i] = vec[i] + vec[i-1];
 vec

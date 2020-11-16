@@ -8,7 +8,7 @@ RHOME="../../R"
 setwd("../data/new_samples")
 source(paste(RHOME, "plotPlasmaFuncs.R", sep="/"));
 
-names = c("1524", "1249", "1494", "1084","609", "616");
+names = c("1524", "1249", "1494", "1084","065", "098");
 
 
 
@@ -27,6 +27,7 @@ unique_c = data.frame(cbind(apply(unique,2,cumsum), apply(unique,2,.cumsum1)))
 ncol = dim(P0_c)[2]
 ratios = matrix(nrow = dim(P0_c)[1],ncol = ncol)
 for(i in 1:ncol){
+
   shared_c[,i] = shared_c[,i]/P0_c[,i]
   unique_c[,i] = unique_c[,i]/P0_c[,i]
   ratios[,i] = shared_c[,i]/unique_c[,i]
@@ -49,21 +50,51 @@ ggp1 = ggplot(df, aes(x,proportion, fill=ID,color=ID, linetype=type))+geom_line(
 ggp1<-ggp1+theme_bw()+theme(text = element_text(size=textsize))
 ggsave("ratio1.png", plot=ggp1, width = 30, height = 30, units = "cm")
 
+ncol1 = dim(P0)[2]
+for(i in 1:ncol1){
+  P0[,i] = P0[,i]/sum(P0[,i])
+}
+
+#density  = data.frame(P0)
+#density = cbind(x,density[,!(names(density) %in% "combined")])
+###DENSITY PLOTS
+
+x = 2:1999
+P0 = readDataAll(names[1:4], '_P0_read_length_count.json', x)
+shared = readDataAll(names[1:4], '_P0.shared.somatic_reads_read_length_count.json', x) #'_P0_shared_read_length_count.json', x)
+unique = readDataAll(names[1:4], '_P0.unique.somatic_reads_read_length_count.json', x)
+P01 = readDataAll(names[5:6], '_P0_read_length_count.json', x)
+merged = readDataAll(names[5:6], '_P0.somatic_reads_read_length_count.json', x)
+mergedT = readDataAll(names[1:4], '_P0.somatic_reads_read_length_count.json', x)
+
+
+P0_d = data.frame(apply(P0, 2, makeDensity,smooth=10))
+shared_d = data.frame(apply(shared, 2, makeDensity,smooth=10))
+unique_d =data.frame( apply(unique, 2, makeDensity,smooth=10))
+P01_d = data.frame(apply(P01, 2, makeDensity,smooth=10))
+merged_d = data.frame(apply(merged,2,makeDensity,smooth=10))
+merged_Td = data.frame(apply(merged,2,makeDensity,smooth=10))
+
+
+
+density = data.frame(x=x,"Tumour_all" = P0_d$combined,
+          "Tumour_uniq" = unique_d$combined, 
+          "Tumour_shared" = shared_d$combined, 
+          "Benign_all" = P01_d$combined,
+          "Benign_filtered" = merged_d$combined, 
+          "Tumour_filtered" = merged_Td$combined)
+
+
+df2 = pivot_longer(density, names_to = "ID", values_to = "proportion", cols=names(density)[-1])
+
+ggp2<-ggplot(df2, aes(x, proportion, fill=ID, color=ID))+geom_line()+scale_y_continuous(trans='log10')+ggtitle("Density plot(20bp sliding window)")
+ggp2<-ggp2+theme_bw()+theme(text = element_text(size=textsize))+xlab("Fragment length(bp)")+ylab("Density")
+ggsave("density.png", plot=ggp2, width = 30, height = 30, units = "cm")
+
 
 ###FROM HERE IS OLDER SCRIPT
 
 
-mergedT = readDataAll(names[1:3], '_P0_merged_read_length_count.json', x)
-P01 = readDataAll(names[4:5], '_P0_read_length_count.json', x)
-merged = readDataAll(names[4:5], '_P0_merged_read_length_count.json', x)
-P0_d = apply(P0, 2, makeDensity)
-shared_d = apply(shared, 2, makeDensity)
-unique_d = apply(unique, 2, makeDensity)
-P01_d = apply(P01, 2, makeDensity)
-merged_d = apply(merged,2,makeDensity)
-merged_Td = apply(mergedT,2,makeDensity)
-
-li = list("Tumour_all" = P0_d[,4,drop=F], "Tumour_uniq" = unique_d[,4,drop=F], "Tumour_shared" = shared_d[,4,drop=F], "Benign_all" = P01_d[,3,drop=F], "Benign_filtered" = merged_d[,3,drop=F], "Tumour_filtered" = merged_Td[,4,drop=F])
 
 #li = list(unique_d = unique_d[,4,drop=F],shared_d = shared_d[,4,drop=F])
 resdir = "res"
