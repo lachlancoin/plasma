@@ -88,9 +88,11 @@ P01_d = data.frame(apply(P01, 2, makeDensity,smooth=10))
 merged_d = data.frame(apply(merged,2,makeDensity,smooth=10))
 merged_Td = data.frame(apply(merged,2,makeDensity,smooth=10))
 
+.addAvg(P0_d, "", probs  =probs)
+
 l = list(Tumour_all =P0_d,Tumour_uniq= unique_d,Tumour_shared =shared_d,
          Benign_all=P01_d, Benign_filtered=merged_d,Tumour_filtered= merged_Td )
-
+l = lapply(l, .addAvg,"",probs=probs)
 .getDens<-function(x, l, nme,id_nme="ID"){
  res = list(x=x)
  for(i in 1:length(l)){
@@ -101,19 +103,19 @@ l = list(Tumour_all =P0_d,Tumour_uniq= unique_d,Tumour_shared =shared_d,
  df2 = pivot_longer(density, names_to = id_nme, values_to = nme, cols=names(density)[-1])
  df2
 }
-density = .getDens(x,l,"combined")
-q_25 = .getDens(x,l,"q_25", "ID")
-q_50 = .getDens(x,l,"q_50","ID1")
-q_75 = .getDens(x,l,"q_75","ID2")
+density = .getDens(x,l,"X_q_50")
+q_25 = .getDens(x,l,"X_q_25", "ID")
+q_50 = .getDens(x,l,"X_q_50","ID1")
+q_75 = .getDens(x,l,"X_q_75","ID2")
 
 df2 = cbind(q_25, q_50, q_75)[,c(1,2,3,6,9)]
 
 
-ggp2<-ggplot(df2, aes(x, q_50,  fill=ID, color=ID))+scale_y_continuous(trans='log10')+ggtitle("Density plot(20bp sliding window)")
+ggp2<-ggplot(df2, aes(x, X_q_50,  fill=ID, color=ID))+scale_y_continuous(trans='log10')+ggtitle("Density plot(20bp sliding window)")
 ggp2<-ggp2+geom_line()
 ggp2<-ggp2+theme_bw()+theme(text = element_text(size=textsize))+xlab("Fragment length(bp)")+ylab("Density")
 
-ggp2<-ggp2+geom_ribbon(aes(ymin=q_25, ymax=q_75, fill = ID),  alpha=0.1)
+ggp2<-ggp2+geom_ribbon(aes(ymin=X_q_25, ymax=X_q_75, fill = ID),  alpha=0.1)
 ggsave("density1.png", plot=ggp2, width = 30, height = 30, units = "cm")
 
 
