@@ -133,9 +133,12 @@ if(col==3){
 	 legend(130, y =15, c('1524', '1249', '1494'), text.col = 1:3)
 	}
 }
+.avgInner<-function(v){
+  c(min(v), mean(v), max(v))
+}
 
-readDataAll<-function(names, ext, x = 2:1999){
-	res = array(0,dim = c(length(x), length(names)+1), dimnames = list(x, c(names, "combined")))
+readDataAll<-function(names, ext, x = 2:1999,  nme1="q",probs = c(0.0,0.5, 1.0)){
+	res = array(0,dim = c(length(x), length(names)), dimnames = list(x,names))
 	for(i in 1:length(names)){
 		inn = names[i]
 		nme_all =paste0(inn,ext)
@@ -144,9 +147,17 @@ readDataAll<-function(names, ext, x = 2:1999){
 		
 		res[ match(r_i[ind1,1], x),i] = r_i[ind1,2]
 	}
-	res[,length(names)+1] = as.matrix(apply(res,1,sum))
-	data.frame(res)
-	
+	combined = apply(res,1,sum)
+	df= data.frame(res)
+	df
+}
+.addAvg<-function(ratios, txt,probs = c(0,0.5,1.0)){
+  #txt = "less than"
+  
+  r1 = ratios[,grep(txt, names(ratios))]
+  df1 = t(apply(r1,1,quantile,probs= probs,na.rm=T))
+  dimnames(df1)[[2]] = paste(txt,"q",probs*100,sep="_")
+  data.frame(cbind(r1,df1))
 }
 ma <- function(x, n = 5){filter(x, rep(1 / n, n), sides = 2)}
 makeDensity<-function(vec, smooth){

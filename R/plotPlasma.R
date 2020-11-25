@@ -32,19 +32,32 @@ for(i in 1:ncol){
   unique_c[,i] = unique_c[,i]/P0_c[,i]
   ratios[,i] = shared_c[,i]/unique_c[,i]
 }
-
 ratios = data.frame(ratios)
-names(ratios) = c(paste(names(unique),"less than or equal to",sep="."),paste(names(unique),"greater than",sep="."))
-ratios = cbind(x,ratios)
-df = pivot_longer(ratios, names_to = "ID", values_to = "proportion", cols=names(ratios)[-1])  %>% 
+names(ratios) = c(paste(names(unique),"LTE",sep="."),paste(names(unique),"GT",sep="."))
+probs =c(0.25,.5,.75)
+
+ratios_ = cbind(x,.addAvg(ratios, "LTE", probs  =probs),.addAvg(ratios, "GT", probs  =probs))
+#ratios = cbind(x,ratios)
+df = pivot_longer(ratios_, names_to = "ID", values_to = "proportion", cols=names(ratios)[-1])  %>% 
       separate(ID, c('ID', 'type'), sep='\\.', remove = T)
-ratios1 = ratios[,c(1,grep("combined",names(ratios)))]
-df1 = pivot_longer(ratios1, names_to="ID",values_to="proportion",cols = names(ratios1)[-1])
-ggp<-ggplot(df1, aes(x,proportion, linetype=ID))+geom_line()+ggtitle("Ratio of shared to unique")+ylab("Ratio")
-ggp<-ggp+scale_x_continuous(trans='log10')
+ratios0 = ratios_[,c(1,grep("q_25",names(ratios_)))]
+ratios1 = ratios_[,c(1,grep("q_50",names(ratios_)))]
+ratios2 = ratios_[,c(1,grep("q_75",names(ratios_)))]
+
+df0 = pivot_longer(ratios0, names_to="ID",values_to="q25",cols = names(ratios0)[-1])
+df1 = pivot_longer(ratios1, names_to="ID",values_to="q50",cols = names(ratios1)[-1])
+df2 = pivot_longer(ratios2, names_to="ID",values_to="q75",cols = names(ratios2)[-1])
+df_all = cbind(df1,df0,df2)[,c(1,2,3,6,9)]
+
+ggp<-ggplot(df_all, aes(x,q50, linetype=ID))+ggtitle("Ratio of shared to unique")+ylab("Ratio")
+ggp<-ggp+geom_line()
+ggp<-ggp+geom_ribbon(aes(ymin=q25, ymax=q75, fill = ID),  alpha=0.1)
+
+ggp<-ggp+scale_x_continuous(trans='log10',breaks = c(2,5,10,20,50,100,200,500,1000,2000))
+ggp<-ggp+ylim(0,0.4)
 textsize=20
 ggp<-ggp+theme_bw()+theme(text = element_text(size=textsize))
-ggsave("ratio.png", plot=ggp, width = 30, height = 30, units = "cm")
+ggsave("ratio3.png", plot=ggp, width = 30, height = 30, units = "cm")
 
 ggp1 = ggplot(df, aes(x,proportion, fill=ID,color=ID, linetype=type))+geom_line()+scale_x_continuous(trans='log10')+ggtitle("Ratio of shared to unique")
 ggp1<-ggp1+theme_bw()+theme(text = element_text(size=textsize))
@@ -60,12 +73,12 @@ for(i in 1:ncol1){
 ###DENSITY PLOTS
 
 x = 2:1999
-P0 = readDataAll(names[1:4], '_P0_read_length_count.json', x)
-shared = readDataAll(names[1:4], '_P0.shared.somatic_reads_read_length_count.json', x) #'_P0_shared_read_length_count.json', x)
-unique = readDataAll(names[1:4], '_P0.unique.somatic_reads_read_length_count.json', x)
-P01 = readDataAll(names[5:6], '_P0_read_length_count.json', x)
-merged = readDataAll(names[5:6], '_P0.somatic_reads_read_length_count.json', x)
-mergedT = readDataAll(names[1:4], '_P0.somatic_reads_read_length_count.json', x)
+P0 = readDataAll(names[1:4], '_P0_read_length_count.json', x,"Tumour_all")
+shared = readDataAll(names[1:4], '_P0.shared.somatic_reads_read_length_count.json', x,"Tumour_shared") #'_P0_shared_read_length_count.json', x)
+unique = readDataAll(names[1:4], '_P0.unique.somatic_reads_read_length_count.json', x, "Tumour_unique")
+P01 = readDataAll(names[5:6], '_P0_read_length_count.json', x, "Benign_all")
+merged = readDataAll(names[5:6], '_P0.somatic_reads_read_length_count.json', x, "Benign_filtered")
+mergedT = readDataAll(names[1:4], '_P0.somatic_reads_read_length_count.json', x,"Tumour_filtered")
 
 
 P0_d = data.frame(apply(P0, 2, makeDensity,smooth=10))
@@ -75,21 +88,33 @@ P01_d = data.frame(apply(P01, 2, makeDensity,smooth=10))
 merged_d = data.frame(apply(merged,2,makeDensity,smooth=10))
 merged_Td = data.frame(apply(merged,2,makeDensity,smooth=10))
 
+l = list(Tumour_all =P0_d,Tumour_uniq= unique_d,Tumour_shared =shared_d,
+         Benign_all=P01_d, Benign_filtered=merged_d,Tumour_filtered= merged_Td )
+
+.getDens<-function(x, l, nme,id_nme="ID"){
+ res = list(x=x)
+ for(i in 1:length(l)){
+   res[[i+1]] = l[[i]][,which(names(l[[i]]) %in% nme)]
+ }
+ names(res) = c("x",names(l))
+ density=data.frame(res)
+ df2 = pivot_longer(density, names_to = id_nme, values_to = nme, cols=names(density)[-1])
+ df2
+}
+density = .getDens(x,l,"combined")
+q_25 = .getDens(x,l,"q_25", "ID")
+q_50 = .getDens(x,l,"q_50","ID1")
+q_75 = .getDens(x,l,"q_75","ID2")
+
+df2 = cbind(q_25, q_50, q_75)[,c(1,2,3,6,9)]
 
 
-density = data.frame(x=x,"Tumour_all" = P0_d$combined,
-          "Tumour_uniq" = unique_d$combined, 
-          "Tumour_shared" = shared_d$combined, 
-          "Benign_all" = P01_d$combined,
-          "Benign_filtered" = merged_d$combined, 
-          "Tumour_filtered" = merged_Td$combined)
-
-
-df2 = pivot_longer(density, names_to = "ID", values_to = "proportion", cols=names(density)[-1])
-
-ggp2<-ggplot(df2, aes(x, proportion, fill=ID, color=ID))+geom_line()+scale_y_continuous(trans='log10')+ggtitle("Density plot(20bp sliding window)")
+ggp2<-ggplot(df2, aes(x, q_50,  fill=ID, color=ID))+scale_y_continuous(trans='log10')+ggtitle("Density plot(20bp sliding window)")
+ggp2<-ggp2+geom_line()
 ggp2<-ggp2+theme_bw()+theme(text = element_text(size=textsize))+xlab("Fragment length(bp)")+ylab("Density")
-ggsave("density.png", plot=ggp2, width = 30, height = 30, units = "cm")
+
+ggp2<-ggp2+geom_ribbon(aes(ymin=q_25, ymax=q_75, fill = ID),  alpha=0.1)
+ggsave("density1.png", plot=ggp2, width = 30, height = 30, units = "cm")
 
 
 ###FROM HERE IS OLDER SCRIPT
