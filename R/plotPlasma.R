@@ -103,10 +103,11 @@ l = lapply(l, .addAvg,"",probs=probs)
  df2 = pivot_longer(density, names_to = id_nme, values_to = nme, cols=names(density)[-1])
  df2
 }
-density = .getDens(x,l,"X_q_50")
-q_25 = .getDens(x,l,"X_q_25", "ID")
-q_50 = .getDens(x,l,"X_q_50","ID1")
-q_75 = .getDens(x,l,"X_q_75","ID2")
+inds = 1:length(l)  ## can change inds to include subset
+density = .getDens(x,l[inds],"X_q_50")
+q_25 = .getDens(x,l[inds],"X_q_25", "ID")
+q_50 = .getDens(x,l[inds],"X_q_50","ID1")
+q_75 = .getDens(x,l[inds],"X_q_75","ID2")
 
 df2 = cbind(q_25, q_50, q_75)[,c(1,2,3,6,9)]
 
