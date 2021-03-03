@@ -86,7 +86,7 @@ shared_d = data.frame(apply(shared, 2, makeDensity,smooth=smooth))
 unique_d =data.frame( apply(unique, 2, makeDensity,smooth=smooth))
 P01_d = data.frame(apply(P01, 2, makeDensity,smooth=smooth))
 merged_d = data.frame(apply(merged,2,makeDensity,smooth=smooth))
-merged_Td = data.frame(apply(merged,2,makeDensity,smooth=smooth))
+merged_Td = data.frame(apply(mergedT,2,makeDensity,smooth=smooth))
 
 .addAvg(P0_d, "", probs  =probs)
 
@@ -103,22 +103,27 @@ l = lapply(l, .addAvg,"",probs=probs)
  df2 = pivot_longer(density, names_to = id_nme, values_to = nme, cols=names(density)[-1])
  df2
 }
-inds = 1:length(l)  ## can change inds to include subset
+inds = length(l):1  ## can change inds to include subset
+#inds = 1:4
+#inds = c(1,5)
+
 density = .getDens(x,l[inds],"X_q_50")
 q_25 = .getDens(x,l[inds],"X_q_25", "ID")
 q_50 = .getDens(x,l[inds],"X_q_50","ID1")
 q_75 = .getDens(x,l[inds],"X_q_75","ID2")
 
 df2 = cbind(q_25, q_50, q_75)[,c(1,2,3,6,9)]
+df2$ID =as.factor(df2$ID)
+na_ind = is.na(df2$X_q_50) | df2$X_q_50==0
+df2 = df2[!na_ind,]
 
-
-ggp2<-ggplot(df2, aes(x, X_q_50,  fill=ID, color=ID))+ggtitle("Density plot(20bp sliding window)")
+ggp2<-ggplot(df2) + geom_point(aes(x, X_q_50,  fill=ID, color=ID,shape=ID))+ggtitle("Density plot(20bp sliding window)")
 ggp2<-ggp2+scale_y_continuous(trans='log10')
-ggp2<-ggp2+geom_line()
+#ggp2<-ggp2+geom_line()
 ggp2<-ggp2+xlim(smooth,600)
 ggp2<-ggp2+theme_bw()+theme(text = element_text(size=textsize))+xlab("Fragment length(bp)")+ylab("Density")
 
-ggp2<-ggp2+geom_ribbon(aes(ymin=X_q_25, ymax=X_q_75, fill = ID),  alpha=0.1)
+#ggp2<-ggp2+geom_ribbon(aes(ymin=X_q_25, ymax=X_q_75, fill = ID),  alpha=0.1)
 ggsave("density1.png", plot=ggp2, width = 30, height = 30, units = "cm")
 
 
