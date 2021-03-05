@@ -137,7 +137,66 @@ if(col==3){
   c(min(v), mean(v), max(v))
 }
 
-readDataAll<-function(names, ext, x = 2:1999,  nme1="q",probs = c(0.0,0.5, 1.0)){
+.getBins<-function(s,x,minv=1e5,rev =F){
+  indsl = list()
+  st = 1;
+  len = length(s)
+  while(st < len){
+    inds = which(cumsum(s[st:len])>=minv)
+    if(length(inds)>=1){
+      end = inds[1]+st
+      indsl[[length(indsl)+1]] = c(st,end)
+      st = end+1
+    }else{
+      end = len
+      indsl[[length(indsl)+1]] = c(st,end)
+      st = end+1
+    }
+  }
+  if(rev){
+    indsl = lapply(indsl, function(v) len -v +1)
+    
+  }
+  out = t(data.frame(indsl))
+  
+  dimnames(out) = list(1:dim(out)[1],c("start","end"))
+  avg = if(rev) x[out[,2]] else x[out[,1]]#  (x[out[,1]]+x[out[,2]])/2
+  cbind(out,avg)
+}
+.convertRatios<-function(x,ratios, nmes, probs=c(0.25,.5,.75), logx=F,main="Ratio of shared to filtered", xlim=NULL){
+  ratios = data.frame(ratios)
+  names(ratios) = c(paste(nmes,"LTE",sep="."),paste(nmes,"GT",sep="."))
+  ratios_ = cbind(x,.addAvg(ratios, "LTE", probs  =probs),.addAvg(ratios, "GT", probs  =probs))
+  #ratios = cbind(x,ratios)
+  df = pivot_longer(ratios_, names_to = "ID", values_to = "proportion", cols=names(ratios)[-1])  %>% 
+    separate(ID, c('ID', 'type'), sep='\\.', remove = T)
+  ratios0 = ratios_[,c(1,grep("q_25",names(ratios_)))]
+  ratios1 = ratios_[,c(1,grep("q_50",names(ratios_)))]
+  ratios2 = ratios_[,c(1,grep("q_75",names(ratios_)))]
+  
+  df0 = pivot_longer(ratios0, names_to="ID",values_to="q25",cols = names(ratios0)[-1])
+  df1 = pivot_longer(ratios1, names_to="ID",values_to="q50",cols = names(ratios1)[-1])
+  df2 = pivot_longer(ratios2, names_to="ID",values_to="q75",cols = names(ratios2)[-1])
+  df_all = cbind(df1,df0,df2)[,c(1,2,3,6,9)]
+  
+  ggp<-ggplot(df_all, aes(x,q50, linetype=ID))+ggtitle(main)+ylab("Ratio")
+  ggp<-ggp+geom_line()
+  ggp<-ggp+geom_ribbon(aes(ymin=q25, ymax=q75, fill = ID),  alpha=0.1)
+  
+  if(logx) ggp<-ggp+scale_x_continuous(trans='log10',breaks = c(2,5,10,20,50,100,200,500,1000,2000))
+  #ggp<-ggp+ylim(0,0.4)
+  textsize=20
+  ggp<-ggp+theme_bw()+theme(text = element_text(size=textsize))
+  if(!is.null(xlim)) ggp<-ggp+xlim(xlim)
+  ggp1 = ggplot(df, aes(x,proportion, fill=ID,color=ID, linetype=type))+geom_line()+ggtitle(main)
+  if(logx)ggp1=ggp1+scale_x_continuous(trans='log10')
+  ggp1<-ggp1+theme_bw()+theme(text = element_text(size=textsize))
+  if(!is.null(xlim)) ggp1<-ggp1+xlim(xlim)
+  
+  list(ggp = ggp, ggp1 = ggp1)
+}
+
+readDataAll<-function(names, ext, x = 2:1999,  nme1="q",probs = c(0.0,0.5, 1.0), window=1, bins = NULL){
 	res = array(0,dim = c(length(x), length(names)), dimnames = list(x,names))
 	for(i in 1:length(names)){
 		inn = names[i]
@@ -149,6 +208,29 @@ readDataAll<-function(names, ext, x = 2:1999,  nme1="q",probs = c(0.0,0.5, 1.0))
 	}
 	combined = apply(res,1,sum)
 	df= data.frame(res)
+	print(window)
+	print(dim(df))
+	if(!is.null(bins)){
+	  binnames =floor(bins[,3])
+	  nwin = length(binnames)
+	  res1 = array(0, dim = c(length(binnames), length(names)), dimnames = list(binnames,names))
+	  for(i in 1:nwin){
+	    inds = bins[i,]
+	    res1[i,] = apply(res[inds,],2,sum)
+	  }
+	  df = data.frame(res1)
+	  
+	}else if(window>1){
+	  lenx = dim(res)[1]
+	  nwin = round(lenx/window)
+	  res1 = array(0, dim = c(nwin, length(names)), dimnames = list(window*(1:nwin),names))
+	  for(i in 1:nwin){
+	    inds= 1:window + (i-1)*window
+	    inds = inds[inds < lenx]
+	    res1[i,] = apply(res[inds,],2,sum)
+	  }
+	  df = data.frame(res1)
+	}
 	df
 }
 .addAvg<-function(ratios, txt,probs = c(0,0.5,1.0)){
@@ -160,9 +242,11 @@ readDataAll<-function(names, ext, x = 2:1999,  nme1="q",probs = c(0.0,0.5, 1.0))
   data.frame(cbind(r1,df1))
 }
 ma <- function(x, n = 5){filter(x, rep(1 / n, n), sides = 2)}
-makeDensity<-function(vec, smooth){
+makeDensity<-function(vec, smooth, cumul=F, cumul1 = F){
   r = vec/(sum(vec))
-  if(smooth>0) r = ma(r,smooth)
+  if(cumul) r= cumsum(r)
+  else if(cumul1) r = cumsum1(r)
+  else if(smooth>0) r = ma(r,smooth)
   r
 }
 
